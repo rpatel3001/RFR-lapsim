@@ -1,7 +1,6 @@
 """Point mass simulator for straight line acceleration."""
 
 from math import pi
-import csv
 import matplotlib.pyplot as plot
 
 
@@ -38,11 +37,13 @@ def engine_stuff(vel):
             break
         elif rpm > torque_curve[-1][0]:
             rpm = torque_curve[-1][0]
-            v = rpm * 2 * pi * tire_radius / 60 / final_drive / gear_ratios[gear]
+            v = rpm * 2 * pi * tire_radius / 60 / \
+                final_drive / gear_ratios[gear]
         elif rpm > upshift_RPM:
             continue
         else:
-            v = rpm * 2 * pi * tire_radius / 60 / final_drive / gear_ratios[gear]
+            v = rpm * 2 * pi * tire_radius / 60 / \
+                final_drive / gear_ratios[gear]
             break
     if rpm <= torque_curve[0][0]:
         torque = torque_curve[0][1]
