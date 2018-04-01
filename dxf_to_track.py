@@ -64,6 +64,6 @@ while modelspace:
 out = open("endurancemichigan2018.csv", 'w')
 for sec in sections:
     if sec['type'] == 'LINE':
-        out.write("straight,%f\n"%dist(sec['start'], sec['end']))
+        out.write("straight,%f\n" % dist(sec['start'], sec['end']))
     elif sec['type'] == 'ARC':
-        out.write("turn,%f,%f\n"%(sec['radius'], sec['angle']))
+        out.write("turn,%f,%f\n" % (sec['radius'], sec['angle']))
