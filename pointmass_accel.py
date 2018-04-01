@@ -62,8 +62,8 @@ def correct_frame(i):
 
 # simulation parameters
 track_file = 'acceltrack.csv'
-track_angle_offset = 0
-dd = .001  # meters
+track_angle_offset = -pi / 2
+dd = 10  # meters
 closed_track = False
 num_laps = 1
 plot_mode = "time"  # track or time
@@ -115,7 +115,7 @@ h = 1
 print("Generating track")
 if closed_track:
     for i in range(len(x)):
-        s = str(int(i * 100 / len(x))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
+        s = str(int(round(i * 100 / len(x)))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
         print('\r' + s, end='')
 
         a = ((x[(i + h) % len(x)] - x[i - h])**2 +
@@ -131,7 +131,7 @@ if closed_track:
             radii.append(inf)
 else:
     for i in range(len(x) - 2 * h):
-        s = str(int(i * 100 / len(x))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
+        s = str(int(round(i * 100 / len(x)))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
         print('\r' + s, end='')
 
         a = ((x[(i + 2 * h)] - x[i])**2 +
@@ -157,7 +157,7 @@ d = [{'t': 0,
 print("Simulating")
 i = 0
 while i < len(x) - 1:
-    s = str(int(i * 100 / len(x))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
+    s = str(int(round(i * 100 / len(x)))) + ('%\t[') + ((i * 50 // len(x)) * '#') + ((49 - i * 50 // len(x)) * ' ' + ']')
     print('\r' + s, end='')
 
     d[i]['len'] = dist((x[i], y[i]), (x[i + 1], y[i + 1]))
@@ -212,6 +212,5 @@ if plot_mode == "track":
     plt.colorbar()
     plt.show()
 elif plot_mode == "time":
-    plt.scatter(l['t'], [x for x in l['A_long']])
-    plt.scatter(l['t'], [x for x in l['A_long_corr']])
+    plt.scatter([x for i, x in enumerate(l['dist'])], [x for x in l['A_long']])
     plt.show()
