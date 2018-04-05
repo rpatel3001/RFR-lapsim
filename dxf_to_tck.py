@@ -153,7 +153,7 @@ if __name__ == "__main__":
     warnings.simplefilter("default")
 
     tck.append(lens[-1])
-    np.save(args.filename[:-3], tck)
+    np.save(args.filename[:-4], tck)
 
     tck2 = np.load(args.filename[:-3] + 'npy')
 
