@@ -32,38 +32,39 @@ def endpoints(e):
         return ((p1, p2, -1), (q2, q1, 1))
 
 
-dwg = ezdxf.readfile("endurancemichigan2018.dxf")
-modelspace = [x for x in dwg.modelspace()]
-e = [x for x in modelspace if x.dxftype() == 'LINE'][0]
-modelspace.remove(e)
-sections = [{"type": e.dxftype(), "start": e.dxf.start, "end": e.dxf.end}]
-del e
-while modelspace:
-    td = inf
-    tf = None
-    tq = None
-    for f in modelspace:
-        for q1, q2, q3 in endpoints(f):
-            d = dist(q1, sections[-1]['end'])
-            if d < td:
-                td = d
-                tf = f
-                tq = (q1, q2, q3)
-    if tf.dxftype() == 'LINE':
-        sections.append({"type": tf.dxftype(), "start": tq[0], "end": tq[1]})
-    elif tf.dxftype() == 'ARC':
-        ang = tq[2] * (tf.dxf.start_angle - tf.dxf.end_angle)
-        if ang < -180:
-            ang += 360
-        if ang > 180:
-            ang -= 360
-        sections.append({"type": tf.dxftype(), "start": tq[0], "end": tq[1], "radius": tf.dxf.radius, "angle": ang})
-    modelspace.remove(tf)
+def read_dxf(file_in, file_out):
+    """Convert a DXF to CSV."""
+    dwg = ezdxf.readfile(file_in)
+    modelspace = [x for x in dwg.modelspace()]
+    e = [x for x in modelspace if x.dxftype() == 'LINE'][0]
+    modelspace.remove(e)
+    sections = [{"type": e.dxftype(), "start": e.dxf.start, "end": e.dxf.end}]
+    del e
+    while modelspace:
+        td = inf
+        tf = None
+        tq = None
+        for f in modelspace:
+            for q1, q2, q3 in endpoints(f):
+                d = dist(q1, sections[-1]['end'])
+                if d < td:
+                    td = d
+                    tf = f
+                    tq = (q1, q2, q3)
+        if tf.dxftype() == 'LINE':
+            sections.append({"type": tf.dxftype(), "start": tq[0], "end": tq[1]})
+        elif tf.dxftype() == 'ARC':
+            ang = tq[2] * (tf.dxf.start_angle - tf.dxf.end_angle)
+            if ang < -180:
+                ang += 360
+            if ang > 180:
+                ang -= 360
+            sections.append({"type": tf.dxftype(), "start": tq[0], "end": tq[1], "radius": tf.dxf.radius, "angle": ang})
+        modelspace.remove(tf)
 
-
-out = open("endurancemichigan2018.csv", 'w')
-for sec in sections:
-    if sec['type'] == 'LINE':
-        out.write("straight,%f\n" % dist(sec['start'], sec['end']))
-    elif sec['type'] == 'ARC':
-        out.write("turn,%f,%f\n" % (sec['radius'], sec['angle']))
+    out = open(file_out, 'w')
+    for sec in sections:
+        if sec['type'] == 'LINE':
+            out.write("straight,%f\n" % dist(sec['start'], sec['end']))
+        elif sec['type'] == 'ARC':
+            out.write("turn,%f,%f\n" % (sec['radius'], sec['angle']))

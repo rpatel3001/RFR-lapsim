@@ -17,8 +17,8 @@ def gen_track(filename, dd=1, angle=0, closed=False):
                 tracklist.append({'type': sec[0],
                                   'radius': float(sec[1]),
                                   'angle': float(sec[2])})
-
     points = [(0, 0)]
+    lens = [0]
     # generate points for each track element
     for sec in tracklist:
         # for straights, use linear interpolation between endpoints
@@ -26,6 +26,7 @@ def gen_track(filename, dd=1, angle=0, closed=False):
             numdiv = round(sec['length'] / dd)
             dlen = sec['length'] / numdiv
             for i in range(numdiv):
+                lens.append(dlen)
                 p1 = points[-1]
                 dx = cos(angle) * dlen
                 dy = sin(angle) * dlen
@@ -45,6 +46,7 @@ def gen_track(filename, dd=1, angle=0, closed=False):
             cx = p1[0] + sign_corr * cos(cangle) * sec['radius']
             cy = p1[1] + sign_corr * sin(cangle) * sec['radius']
             for i in range(numdiv):
+                lens.append(abs(sec['radius'] * dangle))
                 cangle += dangle
                 angle = (angle + dangle) % (2 * pi)
                 dx = sign_corr * cos(cangle) * sec['radius']
@@ -66,4 +68,4 @@ def gen_track(filename, dd=1, angle=0, closed=False):
                 points.append((p1[0] + dx, p1[1] + dy))
 
     x, y = zip(*points)
-    return (list(x), list(y))
+    return (list(x), list(y), lens)

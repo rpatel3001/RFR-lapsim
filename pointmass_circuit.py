@@ -15,18 +15,15 @@ def dist(p1, p2):
 
 def ic_engine(vel):
     """Calculate engine parameters."""
-    for g, r in enumerate(gear_ratios):
+    for g, gr in enumerate(gear_ratios):
         gear = g
-        rpm = vel / (2 * pi * tire_radius) * 60 * final_drive * r
+        rpm = vel / (2 * pi * tire_radius) * 60 * final_drive * gr
         if rpm < upshift_RPM:
-            v = vel
             break
         elif rpm > torque_curve[-1][0]:
             rpm = torque_curve[-1][0]
-            v = rpm * 2 * pi * tire_radius / (60 * final_drive * r)
             continue
         else:
-            v = rpm * 2 * pi * tire_radius / (60 * final_drive * r)
             continue
     if rpm <= torque_curve[0][0]:
         torque = torque_curve[0][1]
@@ -43,9 +40,10 @@ def ic_engine(vel):
             if rpm < r[0]:
                 e2 = r
         torque = e1[1] + (rpm - e1[0]) * (e2[1] - e1[1]) / (e2[0] - e1[0])
+
     return {'torque': torque,
             'rpm': rpm,
-            'vel': min(v, vel),
+            'vel': min(rpm * 2 * pi * tire_radius / (60 * final_drive * gr), vel),
             'gear': gear}
 
 
@@ -53,11 +51,10 @@ def correct_frame(i):
     """Do reverse calculations to correct a frame for an engine limited velocity."""
     eng = ic_engine(d[i]['vel'])
     if d[i]['vel'] <= eng['vel']:
-        d[i]['A_long_corr'] = d[i]['A_long']
         return
-
     d[i]['vel'] = eng['vel']
-    d[i]['A_long_corr'] = (d[i]['vel']**2 - d[i - 1]['vel']**2) / (2 * d[i]['dist'])
+    d[i]['len'] = (d[i - 1]['vel'] + d[i]['vel']) * dt / 2
+    d[i]['dist'] = d[i - 1]['dist'] + d[i]['len']
 
 
 # simulation parameters
@@ -136,13 +133,24 @@ while True:
 
     d[i]['t'] = d[i - 1]['t'] + dt
 
-    d[i]['F_normal'] = VEHICLE_MASS * G
+    eng = ic_engine(d[i - 1]['vel'])
+    correct_frame(i - 1)
+    if d[i - 1]['dist'] >= totaldist:
+        break
+    d[i]['gear'] = eng['gear']
+    d[i]['T_eng_max'] = eng['torque'] * final_drive * gear_ratios[d[i]['gear']]
+    d[i]['F_eng_max'] = d[i]['T_eng_max'] / tire_radius
+
+    d[i]['F_drag'] = 0.5 * rho * A * Cd * d[i - 1]['vel']
+    d[i]['F_df'] = 0.5 * rho * A * Cl * d[i - 1]['vel']
+
+    d[i]['F_normal'] = VEHICLE_MASS * G + d[i]['F_df']
 
     d[i]['F_long_fric_lim'] = d[i]['F_normal'] * MU_LONG
 
-    d[i]['F_cp'] = d[i]['F_long_fric_lim']
+    d[i]['F_cp'] = min(d[i]['F_long_fric_lim'], d[i]['F_eng_max'])
 
-    d[i]['F_net'] = d[i]['F_cp']
+    d[i]['F_net'] = d[i]['F_cp'] - d[i]['F_drag']
 
     d[i]['A_long'] = d[i]['F_net'] / VEHICLE_MASS
 
