@@ -203,6 +203,7 @@ l = {key: [item[key] for item in d]
      }
 
 print("Lap time = " + str(round(l['t'][-1], 4)))
+print("Max velocity = " + str(round(max(l['vel']), 3)))
 print("Max lateral Gs = " + str(round(max(l['A_lat']) / G, 3)))
 print("Max longitudinal Gs = " + str(round(max(l['A_long']) / G, 3)))
 
