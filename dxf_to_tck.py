@@ -42,7 +42,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', help='A DXF file consisting of only LINEs and ARCs. ')
     parser.add_argument('-d', '--delta', type=float, default=.001, help='The distance between points to be fed into the interpolation. ')
-    parser.add_argument('-a', '--angle', type=float, default=-pi / 2, help='The angle offset of the track. ')
     parser.add_argument('-c', '--closed', action='store_true', help='Specify that the track is closed. ')
     args = parser.parse_args()
 
@@ -51,11 +50,11 @@ if __name__ == "__main__":
         exit()
 
     dwg = ezdxf.readfile(args.filename)
-    modelspace = [x for x in dwg.modelspace()]
-    e = [x for x in modelspace if x.dxftype() == 'LINE'][0]
-    modelspace.remove(e)
-    sections = [{"type": e.dxftype(), "start": e.dxf.start, "end": e.dxf.end}]
-    del e
+    modelspace = [x for x in dwg.modelspace() if x.dxftype() == "LINE" or x.dxftype() == "ARC"]
+    s = [x for x in modelspace if x.dxftype() == 'LINE'][0]
+    modelspace.remove(s)
+    sections = [{"type": s.dxftype(), "start": s.dxf.start, "end": s.dxf.end}]
+    del s
     while modelspace:
         td = inf
         tf = None
@@ -82,19 +81,25 @@ if __name__ == "__main__":
     for sec in sections:
         if sec['type'] == 'LINE':
             tracklist.append({'type': 'straight',
+                              'start': sec['start'],
+                              'end': sec['end'],
                               'length': dist(sec['start'], sec['end'])})
         elif sec['type'] == 'ARC':
             tracklist.append({'type': 'turn',
                               'radius': sec['radius'],
                               'angle': sec['angle']})
 
-    points = [(0, 0)]
+    points = [tracklist[0]['start']]
     lens = [0]
-    angle = args.angle
+    angle = -pi / 2
+    rads = []
+    totdist = 0
     # generate points for each track element
     for sec in tracklist:
         # for straights, use linear interpolation between endpoints
         if sec['type'] == "straight":
+            totdist += sec['length']
+            rads.append((totdist, inf))
             numdiv = round(sec['length'] / args.delta)
             dlen = sec['length'] / numdiv
             for i in range(numdiv):
@@ -105,8 +110,9 @@ if __name__ == "__main__":
                 points.append((p1[0] + dx, p1[1] + dy))
         # for turns, calculate points along an arc starting at the current point
         elif sec['type'] == "turn":
-            dangle = args.delta / sec['radius']
-            numdiv = abs(round(radians(sec['angle']) / dangle))
+            totdist += abs(sec['radius'] * radians(sec['angle']))
+            rads.append((totdist, sec['radius']))
+            numdiv = int(round(sec['radius'] * abs(radians(sec['angle'])) / args.delta))
             dangle = radians(sec['angle']) / numdiv
             try:
                 cangle = atan(-1 / tan(angle))
@@ -128,6 +134,8 @@ if __name__ == "__main__":
     if args.closed:
         dist = ((points[-1][0] - points[0][0])**2 +
                 (points[-1][1] - points[0][1])**2)**.5
+        totdist += dist
+        rads.append((totdist, inf))
         numdiv = round(dist / args.delta)
         if numdiv != 0:
             dlen = dist / numdiv
@@ -138,13 +146,15 @@ if __name__ == "__main__":
                 dx = cos(angle) * dlen
                 dy = sin(angle) * dlen
                 points.append((p1[0] + dx, p1[1] + dy))
+                lens.append(dlen)
 
     x, y = zip(*points)
     lens = np.cumsum(lens)
 
+    print("Total length: %f m" % lens[-1])
+
     x = np.array(x)
     y = np.array(y)
-    plt.plot(x, y, label='poly')
 
     # fit splines to x=f(u) and y=g(u), treating both as periodic. also note that s=0
     # is needed in order to force the spline fit to pass through all the input points.
@@ -153,15 +163,24 @@ if __name__ == "__main__":
     warnings.simplefilter("default")
 
     tck.append(lens[-1])
+    tck.append(rads)
     np.save(args.filename[:-4], tck)
 
     tck2 = np.load(args.filename[:-3] + 'npy')
-
     # evaluate the spline fits for 1000 evenly spaced distance values
-    for i in np.arange(0, tck2[-1], 100):
-        xi, yi = interpolate.splev(i, tck2[:-1])
-        # plot the result
-        plt.scatter(xi, yi, s=10, color='red', label='interp')
+    ui = np.linspace(0, tck2[3], 500)
+    xi, yi = interpolate.splev(ui, tck2[:3])
+
+    radcols = []
+    for u in ui:
+        r = [r[1] for r in rads if round(u, 5) <= round(r[0], 5)][0]
+        radcols.append(min(r, 50))
+    # plot the result
+    # plt.plot(ui, radcols)
+    plt.plot(x, y, label='poly')
+    plt.set_cmap('plasma')
+    plt.scatter(xi, yi, s=20, c=radcols, label='interp')
     plt.axis('equal')
+    plt.colorbar()
     plt.legend(loc='best')
     plt.show()

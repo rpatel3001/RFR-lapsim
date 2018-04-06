@@ -1,7 +1,6 @@
 """Point mass simulator for straight line acceleration."""
 
 from math import pi
-import csv
 import matplotlib.pyplot as plot
 
 
