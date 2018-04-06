@@ -10,12 +10,12 @@ from scipy import interpolate
 
 def mu_lat(fn):
     """Allow adding load sensitivity."""
-    return 1.5
+    return 1.8
 
 
 def mu_long(fn):
     """Allow adding load sensitivity."""
-    return 1.5
+    return 1.3
 
 
 def dist(x1, y1, x2, y2):
@@ -127,14 +127,9 @@ gear_ratios = [35 / 14,
                31 / 19,
                28 / 21,
                23 / 21]
-torque_curve = [(2500, 33.72),  # (rpm, Nm)
-                (3000, 30.26),
-                (4000, 33.60),
-                (5000, 32.59),
-                (6000, 30.07),
-                (7000, 30.59),
-                (8000, 33.93),
-                (9000, 32.75),
+torque_curve = [(7000, 36.18),  # (rpm, Nm)
+                (8000, 33.59),
+                (9000, 31.29),
                 (10000, 29.83)]
 
 
@@ -197,6 +192,7 @@ while True:
     else:
         i += 1
 print()
+print("Lap length = %f" % d[i]['dist'])
 d = d[1:-1]
 
 l = {key: [item[key] for item in d]
