@@ -153,7 +153,6 @@ print()
 d = [{'t': 0,
       'vel': 0,
       'dist': 0,
-      'radius': inf,
       'A_long': 0}]
 
 print("Simulating")
@@ -233,6 +232,6 @@ if plot_mode == "track":
     plt.colorbar()
     plt.show()
 elif plot_mode == "time":
-    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['A_long'])], label="dist m")
+    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['vel'])], label="dist m")
     plt.legend(loc='best')
     plt.show()
