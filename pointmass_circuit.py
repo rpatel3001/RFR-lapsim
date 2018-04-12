@@ -6,6 +6,7 @@ from functools import reduce
 import argparse
 import numpy as np
 from scipy import interpolate
+import warnings
 
 
 def mu_lat(fn):
@@ -40,10 +41,13 @@ def calc_radius(i):
     c = dist(ax, ay, bx, by)
 
     pa = acos(max(-1, min(1, (b**2 + c**2 - a**2) / (2 * b * c))))
+    warnings.simplefilter("ignore")
     try:
-        return a / (2 * sin(pi - pa))
+        r = a / (2 * sin(pi - pa))
     except ZeroDivisionError:
-        return inf
+        r = inf
+    warnings.simplefilter("default")
+    return r
 
 
 def ic_engine(vel):
@@ -135,20 +139,18 @@ torque_curve = [(7000, 36.18),  # (rpm, Nm)
                 (9000, 31.29),
                 (10000, 29.83)]
 
-track_points = [get_point(0), get_point(dd)]
 radii = [inf]
 numdiv = int(round(totaldist / dd))
 dd = totaldist / numdiv
 print("Generating track with step size = %f" % dd)
-for i, d in enumerate(np.linspace(2 * dd, totaldist, numdiv)):
-    s = str(int(round(d * 100 / totaldist))) + ('%\t[') + (int(d * 50 // totaldist) * '#') + (int(49 - d * 50 // totaldist) * ' ' + ']')
-    print('\r' + s, end='')
 
-    track_points.append(get_point(d))
+td = np.linspace(0, totaldist, numdiv)
+tx, ty = interpolate.splev(td, tck)
+track_points = list(zip(tx, ty))
+
+for i in range(len(track_points)):
     radii.append(calc_radius(i - 2))
 radii.append(calc_radius(i - 1))
-print()
-
 
 # initial data required to bootstrap the simulation
 d = [{'t': 0,
