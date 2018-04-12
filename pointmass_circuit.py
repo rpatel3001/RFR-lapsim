@@ -87,11 +87,12 @@ def correct_frame(i):
         return
     d[i]['vel'] = eng['vel']
     d[i]['A_long'] = 0
-    d[i]['t'] = d[i - 1]['t'] + min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
+    d[i]['dt'] = min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-f', '--filename', help='A numpy file output by dxf_to_tck.py. ')
+req = parser.add_argument_group('required named arguments')
+req.add_argument('-f', '--filename', required=True, help='A numpy file output by dxf_to_tck.py. ')
 parser.add_argument('-d', '--delta', type=float, default=0.01, help='The timestep to use for simulation. ')
 args = parser.parse_args()
 
@@ -113,7 +114,7 @@ VEHICLE_MASS = 190 + 69  # mass with driver in kg
 Cd = 0.436  # coefficient of drag
 Cl = 1.07  # coefficient of lift
 A = 3.84  # frontal area in m^2
-tire_radius = 0.22098  # in meters
+tire_radius = 0.2286  # in meters
 CG_long = 0.49  # percent rear
 CP_long = 0.54  # percent rear
 CG_vert = 0.3124
@@ -174,10 +175,8 @@ for i in range(len(track_points)):
     d[i]['F_drag'] = 0.5 * rho * A * Cd * d[i - 1]['vel']
     d[i]['F_df'] = 0.5 * rho * A * Cl * d[i - 1]['vel']
 
-    d[i]['WT_long'] = VEHICLE_MASS * d[i - 1]['A_long'] * CG_vert / wheelbase
-
-    d[i]['F_normal_front'] = VEHICLE_MASS * G * (1 - CG_long) + d[i]['F_df'] * (1 - CP_long) - d[i]['WT_long']
-    d[i]['F_normal_rear'] = VEHICLE_MASS * G * CG_long + d[i]['F_df'] * CP_long + d[i]['WT_long']
+    d[i]['F_normal_front'] = VEHICLE_MASS * G * (1 - CG_long) + d[i]['F_df'] * (1 - CP_long)
+    d[i]['F_normal_rear'] = VEHICLE_MASS * G * CG_long + d[i]['F_df'] * CP_long
 
     d[i]['F_normal_total'] = d[i]['F_normal_front'] + d[i]['F_normal_rear']
 
@@ -204,12 +203,17 @@ for i in range(len(track_points)):
     else:
         d[i]['vel'] = ((d[i - 1]['vel'])**2 + 2 * d[i]['A_long'] * dd)**.5
 
-    d[i]['t'] = d[i - 1]['t'] + min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
+    d[i]['dt'] = min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
 
     d.append({})
 
 d = d[1:-1]
 correct_frame(-1)
+
+cum = 0
+for f in d:
+    cum += f['dt']
+    f['t'] = cum
 
 l = {key: [item[key] for item in d]
      for key in list(reduce(
