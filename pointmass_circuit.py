@@ -167,8 +167,6 @@ for i in range(len(track_points)):
     d[i]['dist'] = d[i - 1]['dist'] + d[i]['len']
     d[i]['x'], d[i]['y'] = track_points[i]
 
-    correct_frame(i - 1)
-
     eng = ic_engine(d[i - 1]['vel'])
     d[i]['gear'] = eng['gear']
     d[i]['T_eng_max'] = eng['torque'] * final_drive * gear_ratios[d[i]['gear']]
@@ -207,10 +205,22 @@ for i in range(len(track_points)):
 
     d[i]['dt'] = min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
 
+    correct_frame(i)
     d.append({})
 
-d = d[1:-1]
-correct_frame(-1)
+print()
+d = d[:-1]
+
+for i in range(len(track_points) - 1)[::-1]:
+    if d[i]['vel'] > d[i + 1]['vel']:
+        d[i]['F_long_cp'] = -d[i]['F_long_fric_lim']
+
+        d[i]['F_long_net'] = d[i]['F_long_cp'] - d[i]['F_drag']
+
+        d[i]['A_long'] = d[i]['F_long_net'] / VEHICLE_MASS
+
+        d[i]['vel'] = min(d[i]['vel'], ((d[i + 1]['vel'])**2 + 2 * -d[i]['A_long'] * dd)**.5)
+        d[i]['dt'] = min([x for x in np.roots([0.5 * -d[i]['A_long'], d[i + 1]['vel'], -dd]) if x > 0])
 
 cum = 0
 for f in d:
@@ -224,12 +234,12 @@ l = {key: [item[key] for item in d]
      ))
      }
 
-print()
 print("Lap length = " + str(round(l['dist'][-1], 2)))
 print("Lap time = " + str(round(l['t'][-1], 4)))
 print("Max velocity = " + str(round(max(l['vel']), 3)))
 print("Max lateral Gs = " + str(round(max(l['A_lat']) / G, 3)))
 print("Max longitudinal Gs = " + str(round(max(l['A_long']) / G, 3)))
+print("Max braking Gs = " + str(round(min(l['A_long']) / G, 3)))
 
 if plot_mode == "track":
     plt.set_cmap('jet')
@@ -238,6 +248,7 @@ if plot_mode == "track":
     plt.colorbar()
     plt.show()
 elif plot_mode == "time":
-    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['vel'])], label="dist m")
+    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['vel'])], label="vel")
+    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['A_long'])], label="a long")
     plt.legend(loc='best')
     plt.show()
