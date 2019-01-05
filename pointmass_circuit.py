@@ -47,7 +47,8 @@ def calc_radius(i):
     except ZeroDivisionError:
         r = inf
     warnings.simplefilter("default")
-    return r
+    s = (ax - bx) * (cy - by) - (ay - by) * (cx - bx)
+    return r * (-1 if s > 0 else 1)
 
 
 def ic_engine(vel):
@@ -90,6 +91,7 @@ def correct_frame(i):
     if d[i]['vel'] <= eng['vel'] + .00001:
         return
     d[i]['vel'] = eng['vel']
+    d[i]['rpm'] = eng['rpm']
     d[i]['A_long'] = 0
     d[i]['dt'] = min([x for x in np.roots([0.5 * d[i]['A_long'], d[i - 1]['vel'], -dd]) if x > 0])
 
@@ -160,7 +162,7 @@ d = [{'t': 0,
 
 print("Simulating")
 for i in range(len(track_points)):
-    s = str(int(round(d[i - 1]['dist'] * 100 / totaldist))) + ('%\t[') + (int(d[i - 1]['dist'] * 50 // totaldist) * '#') + (int(49 - d[i - 1]['dist'] * 50 // totaldist) * ' ' + ']')
+    s = str(round(i * 100 / len(track_points))) + ('%\t[') + (i * 50 // len(track_points)) * '#' + (int(49 - i * 50 // len(track_points)) * ' ' + ']')
     print('\r' + s, end='')
 
     d[i]['len'] = dd
@@ -169,6 +171,7 @@ for i in range(len(track_points)):
 
     eng = ic_engine(d[i - 1]['vel'])
     d[i]['gear'] = eng['gear']
+    d[i]['rpm'] = eng['rpm']
     d[i]['T_eng_max'] = eng['torque'] * final_drive * gear_ratios[d[i]['gear']]
     d[i]['F_eng_max'] = d[i]['T_eng_max'] / tire_radius
 
@@ -183,8 +186,8 @@ for i in range(len(track_points)):
     d[i]['radius'] = radii[i]
 
     d[i]['F_lat_tire_max'] = d[i]['F_normal_total'] * mu_lat(d[i]['F_normal_total'])
-    d[i]['V_corner_max'] = np.sqrt(d[i]['F_lat_tire_max'] / VEHICLE_MASS * d[i]['radius'])
-    d[i]['F_lat_vel_max'] = VEHICLE_MASS * d[i - 1]['vel']**2 / d[i]['radius']
+    d[i]['V_corner_max'] = np.sqrt(d[i]['F_lat_tire_max'] / VEHICLE_MASS * abs(d[i]['radius']))
+    d[i]['F_lat_vel_max'] = VEHICLE_MASS * d[i - 1]['vel']**2 / abs(d[i]['radius'])
     d[i]['F_lat'] = min(d[i]['F_lat_tire_max'], d[i]['F_lat_vel_max'])
 
     d[i]['A_lat'] = d[i]['F_lat'] / VEHICLE_MASS
@@ -213,6 +216,22 @@ d = d[:-1]
 
 for i in range(len(track_points) - 1)[::-1]:
     if d[i]['vel'] > d[i + 1]['vel']:
+        d[i]['F_drag'] = 0.5 * rho * A * Cd * d[i + 1]['vel']
+        d[i]['F_df'] = 0.5 * rho * A * Cl * d[i + 1]['vel']
+
+        d[i]['F_normal_front'] = VEHICLE_MASS * G * (1 - CG_long) + d[i]['F_df'] * (1 - CP_long)
+        d[i]['F_normal_rear'] = VEHICLE_MASS * G * CG_long + d[i]['F_df'] * CP_long
+
+        d[i]['F_normal_total'] = d[i]['F_normal_front'] + d[i]['F_normal_rear']
+
+        d[i]['F_lat_tire_max'] = d[i]['F_normal_total'] * mu_lat(d[i]['F_normal_total'])
+        d[i]['F_lat_vel_max'] = VEHICLE_MASS * d[i + 1]['vel']**2 / abs(d[i]['radius'])
+        d[i]['F_lat'] = min(d[i]['F_lat_tire_max'], d[i]['F_lat_vel_max'])
+
+        d[i]['A_lat'] = d[i]['F_lat'] / VEHICLE_MASS
+
+        d[i]['F_long_fric_lim'] = ((1 - (d[i]['F_lat'] / d[i]['F_lat_tire_max'])**2) * (d[i]['F_normal_rear'] * mu_long(d[i]['F_normal_rear']))**2)**.5
+
         d[i]['F_long_cp'] = -d[i]['F_long_fric_lim']
 
         d[i]['F_long_net'] = d[i]['F_long_cp'] - d[i]['F_drag']
@@ -220,6 +239,11 @@ for i in range(len(track_points) - 1)[::-1]:
         d[i]['A_long'] = d[i]['F_long_net'] / VEHICLE_MASS
 
         d[i]['vel'] = min(d[i]['vel'], ((d[i + 1]['vel'])**2 + 2 * -d[i]['A_long'] * dd)**.5)
+
+        eng = ic_engine(d[i + 1]['vel'])
+        d[i]['gear'] = eng['gear']
+        d[i]['rpm'] = eng['rpm']
+
         d[i]['dt'] = min([x for x in np.roots([0.5 * -d[i]['A_long'], d[i + 1]['vel'], -dd]) if x > 0])
 
 cum = 0
@@ -234,21 +258,20 @@ l = {key: [item[key] for item in d]
      ))
      }
 
-print("Lap length = " + str(round(l['dist'][-1], 2)))
-print("Lap time = " + str(round(l['t'][-1], 4)))
-print("Max velocity = " + str(round(max(l['vel']), 3)))
-print("Max lateral Gs = " + str(round(max(l['A_lat']) / G, 3)))
-print("Max longitudinal Gs = " + str(round(max(l['A_long']) / G, 3)))
-print("Max braking Gs = " + str(round(min(l['A_long']) / G, 3)))
+print("Lap length = %s m" % str(round(l['dist'][-1], 2)))
+print("Lap time = %s s" % str(round(l['t'][-1], 4)))
+print("Max velocity = %s m/s" % str(round(max(l['vel']), 3)))
+print("Max lateral accel = %s g" % str(round(max(l['A_lat']) / G, 3)))
+print("Max longitudinal accel = %s g" % str(round(max(l['A_long']) / G, 3)))
+print("Min longitudinal accel = %s g" % str(round(min(l['A_long']) / G, 3)))
 
 if plot_mode == "track":
-    plt.set_cmap('jet')
-    plt.scatter(l['x'], l['y'], c=[min(d, 50) for i, d in enumerate(l['vel'])], s=1)
+    plt.set_cmap('cool')
+    plt.scatter(l['x'], l['y'], c=[min(max(d, -30), 30) for i, d in enumerate(l['vel'])], s=1)
     plt.axis('equal')
     plt.colorbar()
     plt.show()
 elif plot_mode == "time":
-    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['vel'])], label="vel")
-    plt.scatter([x for i, x in enumerate(l['t'])], [d for i, d in enumerate(l['A_long'])], label="a long")
+    plt.scatter([x for i, x in enumerate(l['t'])][:2000], [d for i, d in enumerate(l['vel'])][:2000], label="vel")
     plt.legend(loc='best')
     plt.show()
